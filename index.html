@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <title>Simulador WhatsApp</title>
+</head>
+<body>
+
+    <div class="phone">
+        
+        <div class="header">
+            <i class="fa-solid fa-arrow-left"></i>
+            <img src="DAP-Isotipo_FondoBlanco.png" class="imagen">
+            <p class="texto">SMS DAP</p>
+        </div>
+        <div class="chat" id="chat"></div>
+
+        <div class="input">
+            
+            <input id="text" placeholder="Mensaje" />
+            <button onclick="send()">➤</button>
+        </div>
+    </div>
+
+    <script>
+
+
+        const chat = document.getElementById("chat");
+        let step = 0;
+        let area = "";
+        let categoria = "";
+        let descripcion = "";
+
+        function addMsg(text, cls) {
+        const div = document.createElement("div");
+        div.className = "msg " + cls;
+        div.innerText = text;
+        chat.appendChild(div);
+        chat.scrollTop = chat.scrollHeight;
+        }
+
+        function addAreaOptions() {
+        const div = document.createElement("div");
+        div.className = "msg bot options";
+        div.innerHTML = `
+            <button onclick="selectArea('Area 1')">Area 1</button>
+            <button onclick="selectArea('Area 2')">Area 2</button>
+            <button onclick="selectArea('Ninguna')">Ninguna</button>
+        `;
+        chat.appendChild(div);
+        }
+
+        function addCategoriaOptions() {
+        const div = document.createElement("div");
+        div.className = "msg bot options";
+        div.innerHTML = `
+            <button onclick="selectCategoria('Ocurrencia')">Ocurrencia</button>
+            <button onclick="selectCategoria('Incidente')">Incidente</button>
+            <button onclick="selectCategoria('Near Miss')">Near Miss</button>
+            <button onclick="selectCategoria('Peligro')">Peligro</button>
+             <button onclick="selectCategoria('Mejora')">Mejora</button>
+        `;
+        chat.appendChild(div);
+        }
+
+        function send() {
+        const input = document.getElementById("text");
+        const text = input.value.trim();
+        if (!text) return;
+
+        addMsg(text, "user");
+        input.value = "";
+
+        // Paso 0: saludo
+        if (step === 0 && text.toLowerCase().includes("hola")) {
+            setTimeout(() => {
+            addMsg(
+                "Hola. Gracias por comunicarte con nosotros.\n¿A qué área perteneces?",
+                "bot"
+            );
+            addAreaOptions();
+            step = 1;
+            }, 500);
+            return;
+        }
+
+        // Paso 3: descripción del incidente
+        if (step === 3) {
+            descripcion = text;
+
+            setTimeout(() => {
+            addMsg(
+                "Muchas gracias por la información.\nSerá comunicado al área de seguridad.",
+                "bot"
+            );
+            step = 99; // flujo terminado
+            }, 500);
+        }
+        }
+
+        function selectArea(selectedArea) {
+        if (step !== 1) return;
+
+        area = selectedArea;
+        addMsg(selectedArea, "user");
+
+        setTimeout(() => {
+            if (area === "Ninguna") {
+            addMsg(
+                "Por favor, ingrese al siguiente enlace para ingresar el reporte:\nhttps://www.ejemplo.cl",
+                "bot"
+            );
+            step = 99;
+            } else {
+            addMsg("Favor seleccione la categoría del reporte:", "bot");
+            addCategoriaOptions();
+            step = 2;
+            }
+        }, 500);
+        }
+
+        function selectCategoria(cat) {
+        if (step !== 2) return;
+
+        categoria = cat;
+        addMsg(cat, "user");
+
+        setTimeout(() => {
+            addMsg("Favor describa brevemente lo sucedido...", "bot");
+            step = 3;
+        }, 500);
+        }
+</script>
+
+
+
+
+    <link rel="stylesheet" type="text/css" href="style.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    </body>
+</html>
