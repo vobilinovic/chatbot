@@ -97,7 +97,6 @@
             // Guardar respuesta en el objeto data
             state.data[`Paso_${state.step}`] = text;
 
-            // LÓGICA DE NAVEGACIÓN
             switch (state.step) {
                 case 1: // Selección de Categoría
                     state.categoria = text;
@@ -108,7 +107,6 @@
                         msgContexto = "Estás a punto de reportar un <b>INCIDENTE</b>.<br>Evento que no produjo consecuencias graves pero afectó la seguridad.";
                     }
                     
-                    // Mensaje de contexto + Siguiente pregunta
                     botTalk(msgContexto, null, 400); 
                     state.step = 2;
                     botTalk("¿A qué departamento pertenece el reporte?", [
@@ -128,69 +126,69 @@
 
                 case 3: // Decisión: ¿Bloque Operacional o Descripción?
                     state.area = text;
-                    // Lógica Fuente 31: Si es Ops o Manto -> Bloque Operacional (Paso 4)
-                    // Si no -> Descripción (Paso 10)
+                    // REGLA: Si es Ops o Manto -> Bloque Operacional (Paso 4)
+                    // Si NO -> Saltamos directo a pedir descripción y configuramos el paso 11 (que espera la respuesta)
                     if (text.includes("Operaciones") || text.includes("Mantenimiento")) {
                         state.step = 4;
-                        botTalk("Ingrese la Fecha del evento (DD/MM/AAAA):"); // Espera texto
+                        botTalk("Ingrese la Fecha del evento (DD/MM/AAAA):"); 
                     } else {
-                        state.step = 10;
-                        botTalk("<b>Descripción:</b> Indique qué ocurrió detalladamente."); // Espera texto
+                        state.step = 11; // <--- CAMBIO CLAVE: Saltamos al paso que RECIBE la descripción
+                        botTalk("<b>Descripción:</b> Indique qué ocurrió detalladamente.");
                     }
                     break;
 
                 // --- BLOQUE OPERACIONAL (Común) ---
-                case 4: // Fecha recibida -> Hora
+                case 4: // Fecha -> Hora
                     state.step = 5;
                     botTalk("Hora del evento (UTC):");
                     break;
-                case 5: // Hora recibida -> Aeropuerto Salida
+                case 5: // Hora -> AD Salida
                     state.step = 6;
                     botTalk("Aeródromo de salida (AP/AD):");
                     break;
-                case 6: // AD Salida recibido -> AD Llegada
+                case 6: // AD Salida -> AD Llegada
                     state.step = 7;
                     botTalk("Aeródromo de llegada (AP/AD):");
                     break;
-                case 7: // AD Llegada recibido -> Fase Vuelo
+                case 7: // AD Llegada -> Fase Vuelo
                     state.step = 8;
                     botTalk("Fase de vuelo:", [
                         "Estacionamiento", "Rodaje Salida", "Despegue", "Ascenso", 
                         "Crucero", "Descenso", "Aproximación", "Aterrizaje", "Post-vuelo"
                     ]);
                     break;
-                case 8: // Fase recibida -> Lugar
+                case 8: // Fase -> Lugar
                     state.step = 9;
                     botTalk("Lugar donde ocurrió:", [
                         "Plataforma", "Pista", "Calle de rodaje", "En ruta", 
                         "Hangar", "Instalaciones CMA", "Otro"
                     ]);
                     break;
-                case 9: // Lugar recibido -> Matrícula
+                case 9: // Lugar -> Matrícula
                     state.step = 10;
                     botTalk("Matrícula de la aeronave:", ["CC-ACN", "CC-ACO", "CC-ACQ", "Otra"]);
                     break;
 
-                // --- DESCRIPCIÓN ---
-                case 10: // Matrícula (o salto directo) -> Descripción
-                    // Aquí el usuario ingresa la matrícula, ahora pedimos descripción
-                    // PERO si vinimos directo del paso 3, ya pedimos descripción. 
-                    // Ajuste lógico:
+                // --- UNIFICACIÓN ---
+                case 10: // Recibe Matrícula -> Pide Descripción
+                    // Este paso solo se ejecuta si vinimos por el camino largo (Bloque Operacional)
                     state.step = 11;
                     botTalk("<b>Descripción:</b> Indique qué ocurrió, cómo se desarrolló y antecedentes relevantes.");
                     break;
 
-                case 11: // Descripción recibida -> RAMIFICACIÓN
-                    // Aquí se separan los caminos según Categoría
+                case 11: // Recibe Descripción -> RAMIFICACIÓN
+                    // Aquí llega el usuario que escribió "test".
+                    // Ya tenemos la descripción, ahora decidimos qué sigue según Ocurrencia o Incidente.
+                    
                     if (state.categoria === "Incidente") {
-                        // CAMINO INCIDENTE (Bloque 5 del PDF)
-                        state.step = 30; // Saltamos a pasos de incidente 
+                        // CAMINO INCIDENTE
+                        state.step = 30; 
                         botTalk("Tipo de situación involucrada:", [
                             "Configuración incorrecta", "Error en procedimiento", 
                             "Falla técnica", "Problema comunicación", "Condición insegura"
                         ]);
                     } else {
-                        // CAMINO OCURRENCIA (Bloque 5 del PDF)
+                        // CAMINO OCURRENCIA
                         state.step = 12;
                         botTalk("¿Hubo personas lesionadas?", ["Sí", "No"]);
                     }
@@ -206,7 +204,7 @@
                         botTalk("¿Hubo daños materiales?", ["Sí", "No"]);
                     }
                     break;
-                case 13: // Gravedad Lesiones -> Daños materiales
+                case 13: // Gravedad -> Daños
                     state.step = 14;
                     botTalk("¿Hubo daños materiales?", ["Sí", "No"]);
                     break;
@@ -215,7 +213,7 @@
                         state.step = 15;
                         botTalk("Tipo de daño material:", ["Aeronave", "Infraestructura", "Equipos", "Otro"]);
                     } else {
-                        goToRiskAssessment(); // Salto a evaluación de riesgo
+                        goToRiskAssessment(); 
                     }
                     break;
                 case 15: // Tipo daño -> Riesgo
@@ -223,7 +221,7 @@
                     break;
 
                 // --- CAMINO INCIDENTE: DETECCIÓN Y BARRERAS ---
-                case 30: // Tipo situación -> Factor
+                case 30: // Situación -> Factor
                     state.step = 31;
                     botTalk("Factor principal involucrado (a su juicio):", [
                         "Factor humano", "Factor técnico", "Factor organizacional", 
@@ -242,31 +240,24 @@
                     break;
                 case 33: // Desviación -> Detección
                     state.step = 34;
-                    if (text === "Sí") {
-                        // Podríamos pedir detalle, pero para agilizar vamos a detección
-                        botTalk("¿Cómo fue detectado?", [
-                            "Autodetección", "Otro miembro equipo", "Sistema/Alarma", "Auditoría"
-                        ]);
-                    } else {
-                        botTalk("¿Cómo fue detectado?", [
-                            "Autodetección", "Otro miembro equipo", "Sistema/Alarma", "Auditoría"
-                        ]);
-                    }
+                    botTalk("¿Cómo fue detectado el incidente?", [
+                        "Autodetección", "Otro miembro equipo", "Sistema/Alarma", "Auditoría"
+                    ]);
                     break;
-                case 34: // Detección -> Barreras (Qué evitó que escalara)
+                case 34: // Detección -> Barreras
                     state.step = 35;
                     botTalk("¿Qué evitó que el incidente escalara?", [
                         "Procedimiento", "Experiencia personal", "Sistema técnico", 
                         "Comunicación efectiva", "Suerte/Azar"
                     ]);
                     break;
-                case 35: // Barreras -> Verificación Consecuencias (Incidente es más simple)
-                    state.step = 12; // Reutilizamos lógica de lesiones del paso 12
+                case 35: // Barreras -> Lesiones (Verificación)
+                    state.step = 12; // Reutilizamos lógica de Ocurrencia para lesiones
                     botTalk("¿Hubo personas lesionadas (aunque sean leves)?", ["Sí", "No"]);
                     break;
 
 
-                // --- EVALUACIÓN DE RIESGO (Común para ambos al final) ---
+                // --- EVALUACIÓN DE RIESGO (Final) ---
                 case 40: // Probabilidad -> Severidad
                     state.step = 41;
                     botTalk("Si este evento se repite, ¿qué nivel de consecuencia podría tener?", 
@@ -276,18 +267,18 @@
                     state.step = 42;
                     botTalk("¿Considera que requiere acción inmediata?", ["Sí", "No", "No sé"]);
                     break;
-                case 42: // Urgencia -> Propuesta (Paso final)
+                case 42: // Urgencia -> Propuesta
                     state.step = 43;
                     botTalk("¿Qué acción ayudaría a evitar que esto se repita? (Opcional)");
                     break;
-                case 43: // Cierre
+                case 43: // Propuesta -> Cierre
                     state.step = 44;
                     botTalk("¿El evento fue informado a jefatura?", ["Sí", "No"]);
                     break;
                 case 44: // Fin
                     state.step = 99;
-                    botTalk("<b>REPORTE FINALIZADO</b><br>Gracias por tu reporte.Identificar incidentes permite fortalecer las barreras de seguridad y prevenir eventos de mayor gravedad.");
-                    console.log("Datos recopilados:", state.data); // Para ver los datos en consola
+                    botTalk("<b>REPORTE FINALIZADO</b><br>Gracias por tu reporte. Identificar incidentes permite fortalecer las barreras de seguridad y prevenir eventos de mayor gravedad.");
+                    console.log("Datos:", state.data);
                     break;
             }
         }
