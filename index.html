@@ -10,7 +10,7 @@
         
         <div class="header">
             <i class="fa-solid fa-arrow-left"></i>
-            <img src="DAP-Isotipo_FondoBlanco.png" class="imagen">
+            <img src="DAP-Isotipo_FondoBlanco.png" class="imagen" style="width: 50px;"/>
             <p class="texto">SMS DAP</p>
         </div>
         <div class="chat" id="chat"></div>
@@ -23,113 +23,879 @@
     </div>
 
     <script>
-
-
         const chat = document.getElementById("chat");
+        const inputField = document.getElementById("text");
+        
+
+        let state = {
+            step: 0,
+            categoria: "",
+            area: "",
+            data: {} // Aquí se guardan todas las respuestas
+        };
+
+        // --- FUNCIONES DE UTILIDAD (UI) ---
+
+        function scrollToBottom() {
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        function addMsg(text, type) {
+            const div = document.createElement("div");
+            div.className = "msg " + type;
+            div.innerHTML = text; // Permite HTML como <br> o <b>
+            chat.appendChild(div);
+            scrollToBottom();
+        }
+
+        // Esta función reemplaza toda la repetición de crear botones manualmente
+        function showOptions(options) {
+            const div = document.createElement("div");
+            div.className = "msg bot options";
+            
+            options.forEach(opt => {
+                const btn = document.createElement("button");
+                // Si opt es string, úsalo como etiqueta y valor. Si es objeto, separa label y valor.
+                const label = typeof opt === 'string' ? opt : opt.label;
+                const val = typeof opt === 'string' ? opt : opt.val;
+                
+                btn.innerText = label;
+                btn.onclick = () => handleInput(val, true); // true indica que vino de un botón
+                div.appendChild(btn);
+            });
+            
+            chat.appendChild(div);
+            scrollToBottom();
+        }
+
+        // Simula el "Escribiendo..." y luego muestra el mensaje y opciones
+        function botTalk(text, options = null, delay = 500) {
+            setTimeout(() => {
+                addMsg(text, "bot");
+                if (options) {
+                    showOptions(options);
+                }
+            }, delay);
+        }
+
+        // --- LÓGICA PRINCIPAL DEL FLUJO ---
+
+        function start() {
+            botTalk("Hola. Gracias por comunicarte con nosotros.<br>¿Qué tipo de evento desea reportar?", 
+                ["Ocurrencia", "Incidente", "Near Miss", "Peligro", "Mejora"]);
+            state.step = 1;
+        }
+
+        // Esta función maneja TODAS las entradas (texto o botones)
+        function handleInput(text, isButton = false) {
+            if (!text) return;
+            
+            // Mostrar mensaje del usuario
+            addMsg(text, "user");
+            if (!isButton) inputField.value = "";
+
+            // Guardar respuesta en el objeto data
+            state.data[`Paso_${state.step}`] = text;
+
+            // LÓGICA DE NAVEGACIÓN
+            switch (state.step) {
+                case 1: // Selección de Categoría
+                    state.categoria = text;
+                    let msgContexto = "";
+                    if (text === "Ocurrencia") {
+                        msgContexto = "Estás a punto de reportar una <b>OCURRENCIA</b>.<br>Es un evento real con consecuencias concretas.";
+                    } else if (text === "Incidente") {
+                        msgContexto = "Estás a punto de reportar un <b>INCIDENTE</b>.<br>Evento que no produjo consecuencias graves pero afectó la seguridad.";
+                    }
+                    
+                    // Mensaje de contexto + Siguiente pregunta
+                    botTalk(msgContexto, null, 400); 
+                    state.step = 2;
+                    botTalk("¿A qué departamento pertenece el reporte?", [
+                        "Aerovías DAP – Operaciones", "Aerovías DAP – Aeropuerto", 
+                        "Aerovías DAP – Mantenimiento", "DAP Helicópteros – Operaciones",
+                        "DAP Helicópteros – Mantenimiento", "Otra área"
+                    ], 1000);
+                    break;
+
+                case 2: // Área Principal
+                    state.step = 3;
+                    botTalk("Área principal involucrada:", [
+                        "Operaciones", "Mantenimiento", "Handling / Rampa", 
+                        "Ingeniería", "Despacho / OCC", "SMS / Calidad", "Otra"
+                    ]);
+                    break;
+
+                case 3: // Decisión: ¿Bloque Operacional o Descripción?
+                    state.area = text;
+                    // Lógica Fuente 31: Si es Ops o Manto -> Bloque Operacional (Paso 4)
+                    // Si no -> Descripción (Paso 10)
+                    if (text.includes("Operaciones") || text.includes("Mantenimiento")) {
+                        state.step = 4;
+                        botTalk("Ingrese la Fecha del evento (DD/MM/AAAA):"); // Espera texto
+                    } else {
+                        state.step = 10;
+                        botTalk("<b>Descripción:</b> Indique qué ocurrió detalladamente."); // Espera texto
+                    }
+                    break;
+
+                // --- BLOQUE OPERACIONAL (Común) ---
+                case 4: // Fecha recibida -> Hora
+                    state.step = 5;
+                    botTalk("Hora del evento (UTC):");
+                    break;
+                case 5: // Hora recibida -> Aeropuerto Salida
+                    state.step = 6;
+                    botTalk("Aeródromo de salida (AP/AD):");
+                    break;
+                case 6: // AD Salida recibido -> AD Llegada
+                    state.step = 7;
+                    botTalk("Aeródromo de llegada (AP/AD):");
+                    break;
+                case 7: // AD Llegada recibido -> Fase Vuelo
+                    state.step = 8;
+                    botTalk("Fase de vuelo:", [
+                        "Estacionamiento", "Rodaje Salida", "Despegue", "Ascenso", 
+                        "Crucero", "Descenso", "Aproximación", "Aterrizaje", "Post-vuelo"
+                    ]);
+                    break;
+                case 8: // Fase recibida -> Lugar
+                    state.step = 9;
+                    botTalk("Lugar donde ocurrió:", [
+                        "Plataforma", "Pista", "Calle de rodaje", "En ruta", 
+                        "Hangar", "Instalaciones CMA", "Otro"
+                    ]);
+                    break;
+                case 9: // Lugar recibido -> Matrícula
+                    state.step = 10;
+                    botTalk("Matrícula de la aeronave:", ["CC-ACN", "CC-ACO", "CC-ACQ", "Otra"]);
+                    break;
+
+                // --- DESCRIPCIÓN ---
+                case 10: // Matrícula (o salto directo) -> Descripción
+                    // Aquí el usuario ingresa la matrícula, ahora pedimos descripción
+                    // PERO si vinimos directo del paso 3, ya pedimos descripción. 
+                    // Ajuste lógico:
+                    state.step = 11;
+                    botTalk("<b>Descripción:</b> Indique qué ocurrió, cómo se desarrolló y antecedentes relevantes.");
+                    break;
+
+                case 11: // Descripción recibida -> RAMIFICACIÓN
+                    // Aquí se separan los caminos según Categoría
+                    if (state.categoria === "Incidente") {
+                        // CAMINO INCIDENTE (Bloque 5 del PDF)
+                        state.step = 30; // Saltamos a pasos de incidente 
+                        botTalk("Tipo de situación involucrada:", [
+                            "Configuración incorrecta", "Error en procedimiento", 
+                            "Falla técnica", "Problema comunicación", "Condición insegura"
+                        ]);
+                    } else {
+                        // CAMINO OCURRENCIA (Bloque 5 del PDF)
+                        state.step = 12;
+                        botTalk("¿Hubo personas lesionadas?", ["Sí", "No"]);
+                    }
+                    break;
+
+                // --- CAMINO OCURRENCIA: CONSECUENCIAS ---
+                case 12: // ¿Lesionados?
+                    if (text === "Sí") {
+                        state.step = 13;
+                        botTalk("Gravedad de las lesiones:", ["Leve", "Grave", "Fatal"]);
+                    } else {
+                        state.step = 14;
+                        botTalk("¿Hubo daños materiales?", ["Sí", "No"]);
+                    }
+                    break;
+                case 13: // Gravedad Lesiones -> Daños materiales
+                    state.step = 14;
+                    botTalk("¿Hubo daños materiales?", ["Sí", "No"]);
+                    break;
+                case 14: // ¿Daños?
+                    if (text === "Sí") {
+                        state.step = 15;
+                        botTalk("Tipo de daño material:", ["Aeronave", "Infraestructura", "Equipos", "Otro"]);
+                    } else {
+                        goToRiskAssessment(); // Salto a evaluación de riesgo
+                    }
+                    break;
+                case 15: // Tipo daño -> Riesgo
+                    goToRiskAssessment();
+                    break;
+
+                // --- CAMINO INCIDENTE: DETECCIÓN Y BARRERAS ---
+                case 30: // Tipo situación -> Factor
+                    state.step = 31;
+                    botTalk("Factor principal involucrado (a su juicio):", [
+                        "Factor humano", "Factor técnico", "Factor organizacional", 
+                        "Condiciones ambientales", "No estoy seguro"
+                    ]);
+                    break;
+                case 31: // Factor -> Etapa
+                    state.step = 32;
+                    botTalk("Etapa en la que se produjo:", [
+                        "Antes de la operación", "Durante la operación", "Después de la operación"
+                    ]);
+                    break;
+                case 32: // Etapa -> Desviación
+                    state.step = 33;
+                    botTalk("¿Hubo desviación de procedimientos?", ["Sí", "No", "No estoy seguro"]);
+                    break;
+                case 33: // Desviación -> Detección
+                    state.step = 34;
+                    if (text === "Sí") {
+                        // Podríamos pedir detalle, pero para agilizar vamos a detección
+                        botTalk("¿Cómo fue detectado?", [
+                            "Autodetección", "Otro miembro equipo", "Sistema/Alarma", "Auditoría"
+                        ]);
+                    } else {
+                        botTalk("¿Cómo fue detectado?", [
+                            "Autodetección", "Otro miembro equipo", "Sistema/Alarma", "Auditoría"
+                        ]);
+                    }
+                    break;
+                case 34: // Detección -> Barreras (Qué evitó que escalara)
+                    state.step = 35;
+                    botTalk("¿Qué evitó que el incidente escalara?", [
+                        "Procedimiento", "Experiencia personal", "Sistema técnico", 
+                        "Comunicación efectiva", "Suerte/Azar"
+                    ]);
+                    break;
+                case 35: // Barreras -> Verificación Consecuencias (Incidente es más simple)
+                    state.step = 12; // Reutilizamos lógica de lesiones del paso 12
+                    botTalk("¿Hubo personas lesionadas (aunque sean leves)?", ["Sí", "No"]);
+                    break;
+
+
+                // --- EVALUACIÓN DE RIESGO (Común para ambos al final) ---
+                case 40: // Probabilidad -> Severidad
+                    state.step = 41;
+                    botTalk("Si este evento se repite, ¿qué nivel de consecuencia podría tener?", 
+                        ["Sin impacto", "Impacto menor", "Impacto mayor", "Grave"]);
+                    break;
+                case 41: // Severidad -> Urgencia
+                    state.step = 42;
+                    botTalk("¿Considera que requiere acción inmediata?", ["Sí", "No", "No sé"]);
+                    break;
+                case 42: // Urgencia -> Propuesta (Paso final)
+                    state.step = 43;
+                    botTalk("¿Qué acción ayudaría a evitar que esto se repita? (Opcional)");
+                    break;
+                case 43: // Cierre
+                    state.step = 44;
+                    botTalk("¿El evento fue informado a jefatura?", ["Sí", "No"]);
+                    break;
+                case 44: // Fin
+                    state.step = 99;
+                    botTalk("<b>REPORTE FINALIZADO</b><br>Gracias por tu reporte.Identificar incidentes permite fortalecer las barreras de seguridad y prevenir eventos de mayor gravedad.");
+                    console.log("Datos recopilados:", state.data); // Para ver los datos en consola
+                    break;
+            }
+        }
+
+        // Función auxiliar para saltar al bloque de riesgo (para no repetir código)
+        function goToRiskAssessment() {
+            state.step = 40;
+            botTalk("Evaluación de Riesgo: ¿Con qué frecuencia cree que esto podría volver a ocurrir?", 
+                ["Muy poco probable", "Poco probable", "Ocasional", "Frecuente"]);
+        }
+
+        // --- INICIALIZACIÓN ---
+        // Manejar el botón de enviar
+        function send() {
+            const text = inputField.value.trim();
+            handleInput(text, false);
+        }
+
+        // Permitir enviar con Enter
+        inputField.addEventListener("keypress", function(event) {
+            if (event.key === "Enter") {
+                send();
+            }
+        });
+
+        // Arrancar el chat
+        setTimeout(start, 500);
+
+        /*const chat = document.getElementById("chat");
         let step = 0;
         let area = "";
         let categoria = "";
         let descripcion = "";
 
         function addMsg(text, cls) {
-        const div = document.createElement("div");
-        div.className = "msg " + cls;
-        div.innerText = text;
-        chat.appendChild(div);
-        chat.scrollTop = chat.scrollHeight;
+            const div = document.createElement("div");
+            div.className = "msg " + cls;
+            div.innerHTML = text;
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight;
         }
 
-        function addAreaOptions() {
-        const div = document.createElement("div");
-        div.className = "msg bot options";
-        div.innerHTML = `
-            <button onclick="selectArea('Area 1')">Area 1</button>
-            <button onclick="selectArea('Area 2')">Area 2</button>
-            <button onclick="selectArea('Ninguna')">Ninguna</button>
-        `;
-        chat.appendChild(div);
+        function selectDepartamento() {
+            setTimeout(() => {
+                const div = document.createElement("div");
+                div.className = "msg bot options";
+                div.innerHTML = `
+                    <button onclick="operacionesSelect('Operaciones')">Aerovías DAP - Operaciones</button>
+                    <button onclick="sendDescripcion('Aeropuerto')">Aerovías DAP - Aeropuerto</button>
+                    <button onclick="mantenimientoSelect('Mantenimiento')">Aerovías DAP - Mantenimiento</button>
+                    <button onclick="operacionesSelect('Helos Operaciones')">DAP Helicópteros - Operaciones</button>
+                    <button onclick="mantenimientoSelect('Helos Mantenimiento')">DAP Helicópteros - Mantenimiento</button>
+                    <button onclick="sendDescripcion('Otra')">Otra área de Aerovías DAP</button>
+                `;
+                chat.appendChild(div);
+            }, 500);
+        }
+        
+        function operacionesSelect(area) {
+            setTimeout(() => {
+                addMsg(area, "user");
+                addMsg("Área principal involucrada", "bot");
+                const div = document.createElement("div");
+                div.className = "msg bot options";
+                div.innerHTML = `
+                    <button onclick="bloqueOperacional('Tripulación de Cabina')">Tripulación de Cabina</button>
+                    <button onclick="bloqueOperacional('Tripulación de Vuelo')">Tripulación de Vuelo</button>
+                    <button onclick="bloqueOperacional('EOV')">EOV</button>
+                `;
+                chat.appendChild(div);
+            }, 500);
+        }
+
+        function mantenimientoSelect() {
+            setTimeout(() => {
+                addMsg("Área principal involucrada", "bot");
+                const div = document.createElement("div");
+                div.className = "msg bot options";
+                div.innerHTML = `
+                    <button onclick="bloqueOperacional('Produccion')">Producción</button>
+                    <button onclick="bloqueOperacional('Control Calidad')">Control de Calidad</button>
+                    <button onclick="bloqueOperacional('Sistema Calidad')">Sistema de Calidad</button>
+                    <button onclick="bloqueOperacional('CAMO')">CAMO</button>
+                    <button onclick="bloqueOperacional('Logistica')">Logística</button>
+                `;
+                chat.appendChild(div);
+            }, 500);
+        }
+
+        function bloqueOperacional(area){
+            addMsg(area, "user");
+            setTimeout(() => {
+                addMsg("Fecha del Evento", "bot");
+                step = 3;
+            }, 500);
         }
 
         function addCategoriaOptions() {
-        const div = document.createElement("div");
-        div.className = "msg bot options";
-        div.innerHTML = `
-            <button onclick="selectCategoria('Ocurrencia')">Ocurrencia</button>
-            <button onclick="selectCategoria('Incidente')">Incidente</button>
-            <button onclick="selectCategoria('Near Miss')">Near Miss</button>
-            <button onclick="selectCategoria('Peligro')">Peligro</button>
-             <button onclick="selectCategoria('Mejora')">Mejora</button>
-        `;
-        chat.appendChild(div);
+            const div = document.createElement("div");
+            div.className = "msg bot options";
+            div.innerHTML = `
+                <button onclick="selectCategoria('Ocurrencia')">Ocurrencia</button>
+                <button onclick="selectCategoria('Incidente')">Incidente</button>
+                <button onclick="selectCategoria('Near Miss')">Near Miss</button>
+                <button onclick="selectCategoria('Peligro')">Peligro</button>
+                <button onclick="selectCategoria('Mejora')">Mejora</button>
+            `;
+            chat.appendChild(div);
         }
-
+    
         function send() {
-        const input = document.getElementById("text");
-        const text = input.value.trim();
-        if (!text) return;
+            console.log(categoria)
+            const input = document.getElementById("text");
+            const text = input.value.trim();
+            if (!text) return;
 
-        addMsg(text, "user");
-        input.value = "";
+            addMsg(text, "user");
+            input.value = "";
 
-        // Paso 0: saludo
-        if (step === 0 && text.toLowerCase().includes("hola")) {
-            setTimeout(() => {
-            addMsg(
-                "Hola. Gracias por comunicarte con nosotros.\n¿A qué área perteneces?",
-                "bot"
-            );
-            addAreaOptions();
-            step = 1;
-            }, 500);
-            return;
-        }
-
-        // Paso 3: descripción del incidente
-        if (step === 3) {
-            descripcion = text;
-
-            setTimeout(() => {
-            addMsg(
-                "Muchas gracias por la información.\nSerá comunicado al área de seguridad.",
-                "bot"
-            );
-            step = 99; // flujo terminado
-            }, 500);
-        }
-        }
-
-        function selectArea(selectedArea) {
-        if (step !== 1) return;
-
-        area = selectedArea;
-        addMsg(selectedArea, "user");
-
-        setTimeout(() => {
-            if (area === "Ninguna") {
-            addMsg(
-                "Por favor, ingrese al siguiente enlace para ingresar el reporte:\nhttps://www.ejemplo.cl",
-                "bot"
-            );
-            step = 99;
-            } else {
-            addMsg("Favor seleccione la categoría del reporte:", "bot");
-            addCategoriaOptions();
-            step = 2;
+            // Paso 0: saludo
+            if (step === 0/* && text.toLowerCase().includes("hola")) {
+                setTimeout(() => {
+                    addMsg(
+                        "Hola. Gracias por comunicarte con nosotros.\n¿Qué tipo de incidente desea reportar?",
+                        "bot"
+                    );
+                    addCategoriaOptions();
+                    step = 1;
+                }, 500);
+                return;
             }
-        }, 500);
+
+            if (step === 3) {
+                descripcion = text;
+
+                setTimeout(() => {
+                    addMsg(
+                        "Hora del Evento (UTC)",
+                        "bot"
+                    );
+                    step = 4; 
+                }, 500);
+            }
+
+            if (step === 4) {
+                descripcion = text;
+
+                setTimeout(() => {
+                    addMsg(
+                        "Aeródromo de salida (AP/AD)",
+                        "bot"
+                    );
+                    step = 5; 
+                }, 500);
+            }
+
+            if(step === 5){
+                descripcion = text;
+
+                setTimeout(() => {
+                    addMsg(
+                        "Aeródromo de llegada (AP/AD)",
+                        "bot"
+                    );
+                    step = 6; 
+                }, 500);
+            }
+
+            if(step === 6){
+                descripcion = text;
+
+                setTimeout(() => {
+                    addMsg(
+                        "Fase de vuelo",
+                        "bot"
+                    );
+                    step = 7; 
+                    faseDeVuelo();
+                }, 500);
+
+            }
+
+            if(step == 8){
+                descripcion = text;
+
+                setTimeout(() => {
+                    
+                    if(categoria == "Ocurrencia"){
+                        addMsg("¿Hubo personas lesionadas?", "bot");
+
+                        const div = document.createElement("div");
+                        div.className = "msg bot options";
+                        div.innerHTML = `
+                            <button onclick="lesionados('Si')">Si</button>
+                            <button onclick="lesionados('No')">No</button>
+                        `;
+                        chat.appendChild(div);
+                    }else if(categoria == "Incidente"){
+                        addMsg("Tipo de situación involucrada", "bot");
+
+                        const div = document.createElement("div");
+                        div.className = "msg bot options";
+                        div.innerHTML = `
+                            <button onclick="factorPrincipal('Configuración incorrecta')">Configuración incorrecta</button>
+                            <button onclick="factorPrincipal('Error u omisión en procedimiento')">Error u omisión en procedimiento</button>
+                            <button onclick="factorPrincipal('Falla o anomalía técnica')">Falla o anomalía técnica</button>
+                            <button onclick="factorPrincipal('Problema de comunicación')">Problema de comunicación</button>
+                            <button onclick="factorPrincipal('Condición operacional insegura')">Condición operacional insegura</button>
+                            <button onclick="factorPrincipal('Otro (describir)')">Otro (describir)</button>
+                        `;
+                        chat.appendChild(div);
+                    }
+                
+                }, 500);
+            }
+
+            if(step == 10){
+                descripcion = text;
+
+                setTimeout(() => {
+                    addMsg("Gravedad de las lesiones", "bot");
+                    const div = document.createElement("div");
+                    div.className = "msg bot options";
+                    div.innerHTML = `
+                        <button onclick="danosMateriales('Leve')">Leve</button>
+                        <button onclick="danosMateriales('Grave')">Grave</button>
+                        <button onclick="danosMateriales('Fatal')">Fatal</button>
+                    `;
+                    chat.appendChild(div);
+                }, 500);
+            }
+            
+            if(step == 12){
+                descripcion = text;
+
+                setTimeout(() => {
+                    addMsg(
+                        "¿Se interrumpió la operación?",
+                        "bot"
+                    );
+                    const div = document.createElement("div");
+                    div.className = "msg bot options";
+                    div.innerHTML = `
+                        <button onclick="interrupcion('Si')">Si</button>
+                        <button onclick="interrupcion('No')">No</button>
+                    `;
+                    chat.appendChild(div);
+                    step = 0; 
+                }, 500);
+            }
+
+            if(step == 13){
+                descripcion = text;
+
+                setTimeout(() => {
+                    incidenteDetectado();
+                }, 500);
+            }
         }
 
         function selectCategoria(cat) {
-        if (step !== 2) return;
+            if (step !== 1) return;
+            categoria = cat;
+            addMsg(categoria, "user");
 
-        categoria = cat;
-        addMsg(cat, "user");
-
-        setTimeout(() => {
-            addMsg("Favor describa brevemente lo sucedido...", "bot");
-            step = 3;
-        }, 500);
+            setTimeout(() => {
+                if (categoria === "Ocurrencia") {
+                    addMsg("Estás a punto de reportar una <b>OCURRENCIA.</b><br> Si tienes dudas, puedes consultar qué significa este tipo de reporte en cualquier momento.", "bot");
+                    addMsg("¿A qué departamento pertenece la ocurrencia?", "bot");
+                    selectDepartamento();
+                }else if(categoria === "Incidente"){
+                    addMsg("Estás a punto de reportar un <b>INCIDENTE.</b><br> Si tienes dudas, puedes consultar qué significa este tipo de reporte en cualquier momento.", "bot");
+                    addMsg("¿A qué departamento pertenece el incidente?", "bot");
+                    selectDepartamento();
+                }
+            }, 500);
         }
+
+        function faseDeVuelo(){
+            const div = document.createElement("div");
+            div.className = "msg bot options";
+            div.innerHTML = `
+                <button onclick="faseVuelo('Estacionamiento')">Estacionamiento</button>
+                <button onclick="faseVuelo('Rodaje de Salida')">Rodaje de Salida</button>
+                <button onclick="faseVuelo('Despegue')">Despegue</button>
+                <button onclick="faseVuelo('Ascenso')">Ascenso</button>
+                <button onclick="faseVuelo('Crucero')">Crucero</button>
+                <button onclick="faseVuelo('Descenso')">Descenso</button>
+                <button onclick="faseVuelo('Aproximacion')">Aproximación</button>
+                <button onclick="faseVuelo('Aterrizaje')">Aterrizaje</button>
+                <button onclick="faseVuelo('Rodaje de Llegada')">Rodaje de Llegada</button>
+                <button onclick="faseVuelo('Post-Vuelo')">Post-Vuelo</button>
+            `;
+            chat.appendChild(div);
+        }
+
+        function faseVuelo(fase) {
+            addMsg(fase, "user");
+
+            setTimeout(() => {
+                addMsg(
+                    "Lugar donde ocurrió el evento",
+                    "bot"
+                );
+                const div = document.createElement("div");
+                div.className = "msg bot options";
+                div.innerHTML = `
+                    <button onclick="matricula('Plataforma')">Plataforma</button>
+                    <button onclick="matricula('Pista')">Pista</button>
+                    <button onclick="matricula('Calle de Rodaje')">Calle de Rodaje</button>
+                    <button onclick="matricula('En Ruta')">En Ruta</button>
+                    <button onclick="matricula('Hangar')">Hangar</button>
+                    <button onclick="matricula('Instalaciones CMA')">Instalaciones CMA</button>
+                    <button onclick="matricula('Otro')">Otro</button>
+                `;
+                chat.appendChild(div);
+            }, 500);
+        }
+
+        function matricula(lugar){
+            addMsg(lugar, "user");
+
+            setTimeout(() => {
+                addMsg(
+                    "Matrícula de la Aeronave", "bot");
+                const div = document.createElement("div");
+                div.className = "msg bot options";
+                div.innerHTML = `
+                    <button onclick="sendDescripcion('CC-ACN')">CC-ACN</button>
+                    <button onclick="sendDescripcion('CC-ACO')">CC-ACO</button>
+                    <button onclick="sendDescripcion('CC-ACQ')">CC-ACQ</button>`;  
+                chat.appendChild(div);
+            }, 500);
+        }
+
+        function sendDescripcion(matricula){
+            if(matricula){
+                addMsg(matricula, "user");
+            }-
+            setTimeout(() => {
+                addMsg(
+                    "Indique qué ocurrió, cómo se desarrolló el evento y cualquier antecedente relevante.",
+                    "bot"
+                );
+                step = 8; 
+            }, 500);
+        }
+
+        function lesionados(respuesta){
+            addMsg(respuesta, "user");
+
+            setTimeout(() => {
+                if(respuesta === "Si"){
+                    addMsg("Cantidad de lesionados", "bot");
+                    step = 10; 
+                }
+                else{
+                    probabilidadPercibida(
+
+                    );
+                }
+                
+            }, 500);
+        }
+
+
+        function danosMateriales(respuesta){
+            addMsg(respuesta, "user");
+            setTimeout(() => {
+                addMsg("¿Hubo daños materiales?", "bot");
+                const div = document.createElement("div");
+                div.className = "msg bot options";
+                div.innerHTML = `
+                    <button onclick="tipoDanoMaterial('Si')">Si</button>
+                    <button onclick="probabilidadPercibida('No')">No</button>
+                `;
+                chat.appendChild(div);
+            }, 500);
+        }
+
+        function tipoDanoMaterial(respuesta){
+            addMsg(respuesta, "user");
+            setTimeout(() => {
+                addMsg("Tipo de daño material", "bot");
+                const div = document.createElement("div");
+                div.className = "msg bot options";
+                div.innerHTML = `
+                    <button onclick="probabilidadPercibida('Aeronave')">Aeronave</button>
+                    <button onclick="probabilidadPercibida('Infraestructura')">Infraestructura</button>
+                    <button onclick="probabilidadPercibida('Equipos y Herramientas')">Equipos y Herramientas</button>
+                    <button onclick="probabilidadPercibida('Otro')">Otro</button>
+                `;
+                chat.appendChild(div);
+            }, 500);
+        }
+
+        function probabilidadPercibida(respuesta){
+            if(respuesta){
+                addMsg(respuesta, "user");
+            }
+            setTimeout(() => {
+                addMsg("Desde su experiencia, ¿con qué frecuencia cree que este evento podría volver a ocurrir si no se toman medidas?", "bot");
+                const div = document.createElement("div");
+                div.className = "msg bot options";
+                div.innerHTML = `
+                    <button onclick="severidadPercibida('Muy poco probable')">Muy poco probable</button>
+                    <button onclick="severidadPercibida('Poco probable')">Poco probable</button>
+                    <button onclick="severidadPercibida('Ocasional')">Ocasional</button>
+                    <button onclick="finalizaseveridadPercibidarReporte('Frecuente')">Frecuente</button>
+                `;
+                chat.appendChild(div);
+            }, 500);
+        }
+
+        function severidadPercibida(respuesta){
+            addMsg(respuesta, "user");
+            setTimeout(() => {
+                addMsg("Si este evento se repite, ¿qué nivel de consecuencia podría tener?", "bot");
+                const div = document.createElement("div");
+                div.className = "msg bot options";
+                div.innerHTML = `
+                    <button onclick="nivelRiesgo('Sin impacto relevante')">Sin impacto relevante</button>
+                    <button onclick="nivelRiesgo('Impacto menor')">Impacto menor</button>
+                    <button onclick="nivelRiesgo('Impacto mayor')">Impacto mayor</button>
+                    <button onclick="nivelRiesgo('Impacto grave')">Impacto grave</button>
+                `;
+                chat.appendChild(div);
+            }, 500);
+        }
+
+        function nivelRiesgo(respuesta){
+            addMsg(respuesta, "user");
+            setTimeout(() => {
+                addMsg("Considerando lo ocurrido, usted diría que el riesgo asociado a este evento es:", "bot");
+                const div = document.createElement("div");
+                div.className = "msg bot options";
+                div.innerHTML = `
+                    <button onclick="urgenciaAccion('Bajo')">Bajo</button>
+                    <button onclick="urgenciaAccion('Medio')">Medio</button>
+                    <button onclick="urgenciaAccion('Alto')">Alto</button>
+                `;
+                chat.appendChild(div);
+            }, 500);
+        }
+
+        function urgenciaAccion(respuesta){
+            addMsg(respuesta, "user");
+            setTimeout(() => {
+                addMsg("¿Considera que este evento requiere acciones correctivas inmediatas?", "bot");
+                const div = document.createElement("div");
+                div.className = "msg bot options";
+                div.innerHTML = `
+                    <button onclick="propuestaReportante('Si')">Si</button>
+                    <button onclick="propuestaReportante('No')">No</button>
+                    <button onclick="propuestaReportante('No estoy seguro')">No estoy seguro</button>
+                `;
+                chat.appendChild(div);
+            }, 500);
+        }
+
+        function propuestaReportante(respuesta){
+            addMsg(respuesta, "user");
+            setTimeout(() => {
+                addMsg("Desde su punto de vista, ¿qué acción ayudaría a evitar que este evento vuelva a ocurrir?", "bot");
+                step = 12;
+            }, 500);
+        }
+
+        function interrupcion(respuesta){
+            addMsg(respuesta, "user");
+            setTimeout(() => {
+                addMsg("¿Se aplicó alguna acción inmediata?", "bot");
+                const div = document.createElement("div");
+                div.className = "msg bot options";
+                div.innerHTML = `
+                    <button onclick="eventoInformado('Si')">Si</button>
+                    <button onclick="eventoInformado('No')">No</button>
+                `;
+                chat.appendChild(div);
+            }, 500);
+        }
+        
+        function eventoInformado(respuesta){
+            addMsg(respuesta, "user");
+            setTimeout(() => {
+                addMsg("¿El evento fue informado a jefatura o supervisión?", "bot");
+                const div = document.createElement("div");
+                div.className = "msg bot options";
+                div.innerHTML = `
+                    <button onclick="finalizar('Si')">Si</button>
+                    <button onclick="finalizar('No')">No</button>
+                `;
+                chat.appendChild(div);
+            }, 500);
+        }
+
+        function finalizar(respuesta){
+            addMsg(respuesta, "user");
+            setTimeout(() => {
+                addMsg("Gracias por reportar la ocurrencia. Su reporte ha sido registrado con éxito.", "bot");
+            }, 500);
+        }
+
+        function factorPrincipal(respuesta){
+            addMsg(respuesta, "user");
+            setTimeout(() => {
+                addMsg(" Factor principal involucrado (a su juicio)", "bot");
+                const div = document.createElement("div");
+                div.className = "msg bot options";
+                div.innerHTML = `
+                    <button onclick="etapaIncidente('Factor humano')">Factor humano</button>
+                    <button onclick="etapaIncidente('Factor técnico')">Factor técnico</button>
+                    <button onclick="etapaIncidente('Factor organizacional')">Factor organizacional</button>
+                    <button onclick="etapaIncidente('Condiciones ambientales')">Condiciones ambientales</button>
+                    <button onclick="etapaIncidente('No estoy seguro')">No estoy seguro</button>
+                `;
+                chat.appendChild(div);
+            }, 500);
+        }
+
+        function etapaIncidente(respuesta){
+            addMsg(respuesta, "user");
+            setTimeout(() => {
+                addMsg("Etapa en la que se produjo el incidente", "bot");
+                const div = document.createElement("div");
+                div.className = "msg bot options";
+                div.innerHTML = `
+                    <button onclick="desviacionProcedimiento('Antes de la operación')">Antes de la operación</button>
+                    <button onclick="desviacionProcedimiento('Durante la operación')">Durante la operación</button>
+                    <button onclick="desviacionProcedimiento('Después de la operación')">Después de la operación</button>
+                `;
+                chat.appendChild(div);
+            }, 500);
+        }
+
+        function desviacionProcedimiento(respuesta){
+            addMsg(respuesta, "user");
+            setTimeout(() => {
+                addMsg("¿Hubo desviación de procedimientos?", "bot");
+                const div = document.createElement("div");
+                div.className = "msg bot options";
+                div.innerHTML = `
+                    <button onclick="describirDesviacion('Si')">Si</button>
+                    <button onclick="incidenteDetectado('No')">No</button>
+                    <button onclick="incidenteDetectado('No estoy seguro')">No estoy seguro</button>
+                `;
+                chat.appendChild(div);
+            }, 500);
+        }
+
+        function describirDesviacion(respuesta){
+            addMsg(respuesta, "user");
+            setTimeout(() => {
+                addMsg("Describa la desviación de procedimiento", "bot");
+                step = 13; 
+            }, 500);
+        }
+
+        function incidenteDetectado(respuesta){
+            addMsg(respuesta, "user");
+            setTimeout(() => {
+                addMsg("¿Cómo fue detectado el incidente?", "bot");
+                const div = document.createElement("div");
+                div.className = "msg bot options";
+                div.innerHTML = `
+                    <button onclick="evitoIncidente('Autodetección')">Autodetección</button>
+                    <button onclick="evitoIncidente('Otro miembro del equipo')">Otro miembro del equipo</button>
+                    <button onclick="evitoIncidente('Superviso/Jefatura')">Supervisor / Jefatura</button>
+                    <button onclick="evitoIncidente('Sistema / Alarma')">Sistema / Alarma</button>
+                    <button onclick="evitoIncidente('Auditoría / Inspección')">Auditoría / Inspección</button>
+                    <button onclick="evitoIncidente('Otro')">Otro</button>
+                `;
+                chat.appendChild(div);
+            }, 500);
+        }
+
+        function evitoIncidente(respuesta){
+            addMsg(respuesta, "user");
+            setTimeout(() => {
+                addMsg("¿Qué evitó que el incidente escalara?", "bot");
+                const div = document.createElement("div");
+                div.className = "msg bot options";
+                div.innerHTML = `
+                    <button onclick="huboLesionados('Procedimiento')">Procedimiento</button>
+                    <button onclick="huboLesionados('Experiencia / criterio del personal')">Experiencia / criterio del personal</button>
+                    <button onclick="huboLesionados('Sistema técnico')">Sistema técnico</button>
+                    <button onclick="huboLesionados('Comunicación efectiva')">Comunicación efectiva</button>
+                    <button onclick="huboLesionados('Condiciones externas favorables')">Condiciones externas favorables</button>
+                    <button onclick="huboLesionados('No aplica / No estoy seguro')">No aplica / No estoy seguro</button>
+                `;
+                chat.appendChild(div);
+            }, 500);
+        }
+
+        function huboLesionados(respuesta){
+            addMsg(respuesta, "user");
+           
+            setTimeout(() => {
+                addMsg("¿Hubo personas lesionadas?", "bot");
+                const div = document.createElement("div");
+                div.className = "msg bot options";
+                div.innerHTML = `
+                    <button onclick="lesionados('Si')">Si</button>
+                    <button onclick="lesionados('No')">No</button>
+                `;
+                chat.appendChild(div);
+            }, 500);
+        }*/
 </script>
 
 
