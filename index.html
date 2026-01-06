@@ -140,11 +140,23 @@
                     // REGLA: Si es Ops o Manto -> Bloque Operacional (Paso 4)
                     // Si NO -> Saltamos directo a pedir descripción y configuramos el paso 11 (que espera la respuesta)
                     if (text.includes("Operaciones") || text.includes("Mantenimiento")) {
-                        state.step = 4;
-                        botTalk("Ingrese la Fecha del evento (DD/MM/AAAA):"); 
-                    } else {
-                        state.step = 11; // <--- CAMBIO CLAVE: Saltamos al paso que RECIBE la descripción
-                        botTalk("<b>Descripción:</b> Indique qué ocurrió detalladamente.");
+                        if(state.categoria === "<b>Peligro:</b> Riesgo latente que aún no se materializa."){
+                            //PENDIENTE
+                        }else{
+                            state.step = 4;
+                            botTalk("Ingrese la Fecha del evento (DD/MM/AAAA):"); 
+                        }
+                        
+                    } else{
+                        if(state.categoria === "<b>Peligro:</b> Riesgo latente que aún no se materializa."){
+                            state.step = 130;
+                            botTalk("Lugar donde se identifica el peligro", [
+                            "Aeródromo / Base operacional", "Plataforma", "Pista", "Calle de rodaje", "Hangar", "Instalaciones CMA", "En ruta", "Otro (especificar)"]);
+                        }else{
+                            state.step = 11; // <--- CAMBIO CLAVE: Saltamos al paso que RECIBE la descripción
+                            botTalk("<b>Descripción:</b> Indique qué ocurrió detalladamente.");
+                        }
+                        
                     }
                     break;
 
@@ -206,6 +218,8 @@
                         state.step = 55;
                         botTalk("¿Qué ACCIDENTE podría haber ocurrido?", 
                         ["Colisión / impacto", "Pérdida de control", "Incursión en pista", "Daño estructural a la aeronave", "Lesión a personas", "Otro"]);
+                    }else if(state.categoria === "<b>Peligro:</b> Riesgo latente que aún no se materializa."){
+                        
                     }
                     break;
 
@@ -489,6 +503,121 @@
                 case 122:
                     console.log("Datos:", state.data);
                     botTalk("Gracias por tu reporte. <br>Los Near Miss permiten identificar debilidades del sistema <b>antes</b> de que se transformen en accidentes.");
+                    break;
+
+                //PELIGRO
+                case 130:
+                    let lugar = state.data['Paso_130'];
+                    if(lugar == "Aeródromo / Base operacional"){
+                        state.step = 131;
+                        botTalk("Aeródromo donde se identifica el peligro");
+                    }else{
+                        state.step = 131;
+                    }
+                    break;
+
+                case 131:
+                    state.step = 132;
+                    botTalk("Describa el peligro identificado.Indique claramente: <br>• qué condición existe,<br>• por qué representa un riesgo,<br>• a quién o qué podría afectar.<br>📌 No describa eventos ocurridos; concéntrese solo en la condición peligrosa.")
+                    break;
+
+                case 132:
+                    state.step = 133;
+                    botTalk("Si este peligro no se controla, ¿qué podría ocurrir?", [
+                    "Lesión a personas", "Daño a la aeronave", "Daño a infraestructura", "Interrupción de la operación", "Accidente grave", "Otro (describir)"]);
+                    break;
+
+                case 133:
+                    state.step = 134;
+                    botTalk("¿Quiénes podrían verse afectados?", ["Tripulación", "Personal de mantenimiento", "Personal de rampa", "Pasajeros", "Terceros", "Más de uno de los anteriores"]);
+                    break;
+
+                case 134:
+                    state.step = 135;
+                    botTalk(" ¿Con qué frecuencia está presente este peligro?", ["Permanente", "Frecuente", "Ocasional", "Raro"]);
+                    break;
+
+                case 135:
+                    state.step = 136;
+                    botTalk("¿En qué condiciones se manifiesta principalmente?", ["Operación normal", "Alta carga de trabajo", 
+                    "Condiciones ambientales adversas", "Falta de personal", "Cambios de procedimiento", "Otro"]);
+
+                case 136:
+                    state.step = 137;
+                    botTalk("¿Existen controles o barreras actualmente?", ["Si", "No", "No estoy seguro"]);
+                    break;
+
+                case 137:
+                    state.step = 138;
+                    let respuesta = state.data['Paso_137'];
+                    if(respuesta == "Si"){
+                        botTalk("Tipo de barreras existentes", ["Procedimientos", "Capacitación", "Supervisión", "Barreras técnicas", "Señalización", "Experiencia del personal"]);
+                    }
+                    break;
+
+                case 138:
+                    state.step = 139;
+                    botTalk("Desde su experiencia, los controles actuales son:", ["Adecuados", "Parcialmente adecuados", "Insuficientes", "No lo sé"]);
+                    break;
+
+                case 139:
+                    state.step = 140;
+                    botTalk("Esta sección permite clasificar el peligro según precursores OACI. Si tienes conocimiento del área, selecciona la opción que mejor represente el origen del peligro.");
+                    botTalk("Precursor OACI principal asociado al peligro (Seleccione el más representativo)", 
+                    ["Factor Humano (HF)", "Factor Técnico (TF)", "Factor Organizacional (OF)", "Factor Ambiental / Entorno (EF)", "Interfaz Humano–Sistema (HSI)", "No estoy seguro"]);
+                    break;
+
+                case 140:
+                    state.step = 141;
+                    botTalk(" Sub-precursor específico (opcional, selección múltiple)", 
+                    ["Procedimiento inexistente o poco claro", "Procedimiento no aplicable a la realidad", "Capacitación insuficiente", 
+                    "Falta de experiencia", "Presión de tiempo / productividad", "Recursos insuficientes", "Supervisión limitada", "Diseño deficiente del proceso",
+                    "Práctica informal normalizada", "Condiciones ambientales adversas"]);
+                    break;
+
+                case 141:   
+                    state.step = 142;
+                    botTalk("¿Este precursor es recurrente en el área?", ["Sí, ocurre frecuentemente", "Ha ocurrido antes", "Es la primera vez", "No lo sé"]);
+                    break;
+
+                case 142:
+                    state.step = 143;
+                    botTalk("Este peligro:", ["Apareció recientemente", "Existe desde hace tiempo", "Ha ido aumentando", "No estoy seguro"]);
+                    break;
+
+                case 143:
+                    state.step = 144;
+                    botTalk("¿Este peligro ya ha generado incidentes, near miss u ocurrencias?", ["Si", "No", "No lo sé"]);
+                    break;
+
+                case 144:
+                    state.step = 145;
+                    botTalk("Probabilidad percibida", ["Muy baja", "Baja", "Media", "Alta"]);
+                    break;
+
+                case 146:
+                    state.step = 147;
+                    botTalk("Severidad potencial", ["Menor", "Mayor", "Grave / catastrófica"]);
+                    break;
+
+                case 147:
+                    state.step = 148;
+                    botTalk("Nivel de riesgo percibido", ["Bajo", "Medio", "Alto"]);
+                    break;
+
+                case 148:
+                    state.step = 149;
+                    botTalk("¿Qué acción preventiva ayudaría a controlar este peligro?");
+                    break;
+
+                case 149:
+                    state.step = 150;
+                    botTalk("¿Este peligro ha sido informado previamente?", ["Si", "No", "No lo sé"]);
+                    break;
+
+                case 150:
+                    state.step = 151;
+                    botTalk("Gracias por identificar este peligro. Tu reporte contribuye directamente a la prevención y al fortalecimiento de la seguridad operacional.");
                     break;
             }
         }
