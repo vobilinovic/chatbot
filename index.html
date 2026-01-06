@@ -31,6 +31,7 @@
             step: 0,
             categoria: "",
             area: "",
+            subBloque: "",
             data: {} // Aquí se guardan todas las respuestas
         };
 
@@ -59,7 +60,7 @@
                 const label = typeof opt === 'string' ? opt : opt.label;
                 const val = typeof opt === 'string' ? opt : opt.val;
                 
-                btn.innerText = label;
+                btn.innerHTML = label;
                 btn.onclick = () => handleInput(val, true); // true indica que vino de un botón
                 div.appendChild(btn);
             });
@@ -82,7 +83,11 @@
 
         function start() {
             botTalk("Hola. Gracias por comunicarte con nosotros.<br>¿Qué tipo de evento desea reportar?", 
-                ["Ocurrencia", "Incidente", "Near Miss", "Peligro", "Mejora"]);
+                ["<b>Ocurrencia:</b> Evento ocurrido con daño o impacto real.", 
+                "<b>Incidente:</b> Evento ocurrido sin consecuencias graves.", 
+                "<b>Near Miss:</b> Accidente que estuvo a punto de ocurrir.", 
+                "<b>Peligro:</b> Riesgo latente que aún no se materializa.", 
+                "<b>Mejora:</b> Propuesta para fortalecer la seguridad."]);
             state.step = 1;
         }
 
@@ -105,6 +110,12 @@
                         msgContexto = "Estás a punto de reportar una <b>OCURRENCIA</b>.<br>Es un evento real con consecuencias concretas.";
                     } else if (text === "Incidente") {
                         msgContexto = "Estás a punto de reportar un <b>INCIDENTE</b>.<br>Evento que no produjo consecuencias graves pero afectó la seguridad.";
+                    } else if(text === "Near Miss"){
+                        msgContexto = "Estás a punto de reportar un <b>NEAR MISS</b>.<br>Evento que estuvo a punto de convertirse en un accidente.";
+                    } else if(text === "Peligro"){
+                        msgContexto = "Estás a punto de reportar un <b>PELIGRO</b>.<br>Riesgo latente que aún no se ha materializado.";
+                    } else if(text === "Mejora"){
+                        msgContexto = "Estás a punto de reportar una <b>MEJORA</b>.<br>Propuesta para fortalecer la seguridad operacional.";
                     }
                     
                     botTalk(msgContexto, null, 400); 
@@ -179,18 +190,22 @@
                 case 11: // Recibe Descripción -> RAMIFICACIÓN
                     // Aquí llega el usuario que escribió "test".
                     // Ya tenemos la descripción, ahora decidimos qué sigue según Ocurrencia o Incidente.
-                    
-                    if (state.categoria === "Incidente") {
+                    console.log(state.categoria)
+                    if (state.categoria === "<b>Incidente:</b> Evento ocurrido sin consecuencias graves.") {
                         // CAMINO INCIDENTE
                         state.step = 30; 
                         botTalk("Tipo de situación involucrada:", [
                             "Configuración incorrecta", "Error en procedimiento", 
                             "Falla técnica", "Problema comunicación", "Condición insegura"
                         ]);
-                    } else {
+                    } else if(state.categoria === "<b>Ocurrencia:</b> Evento ocurrido con daño o impacto real."){
                         // CAMINO OCURRENCIA
                         state.step = 12;
                         botTalk("¿Hubo personas lesionadas?", ["Sí", "No"]);
+                    }else if(state.categoria === "<b>Near Miss:</b> Accidente que estuvo a punto de ocurrir."){
+                        state.step = 55;
+                        botTalk("¿Qué ACCIDENTE podría haber ocurrido?", 
+                        ["Colisión / impacto", "Pérdida de control", "Incursión en pista", "Daño estructural a la aeronave", "Lesión a personas", "Otro"]);
                     }
                     break;
 
@@ -279,6 +294,201 @@
                     state.step = 99;
                     botTalk("<b>REPORTE FINALIZADO</b><br>Gracias por tu reporte. Identificar incidentes permite fortalecer las barreras de seguridad y prevenir eventos de mayor gravedad.");
                     console.log("Datos:", state.data);
+                    break;
+
+                //NEAR MISS
+                case 55:
+                    state.step = 56;
+                    botTalk("La situación de riesgo estuvo asociada principalmente a:", 
+                    ["Aves (riesgo aviario)", "Objeto en pista / FOD", "Fauna terrestre", "Tráfico aéreo / separación", "Condiciones meteorológicas", "Otro"]);
+                    break;
+
+                case 56:      
+                    let situacion = state.data['Paso_56'];
+                    if(situacion === "Aves (riesgo aviario)"){
+                        state.step = 57;
+                        botTalk("Fase específica donde se observó la(s) ave(s):", 
+                        ["Rodaje", "Carrera de despegue", "Post-despegue", "Aproximación", "Aterrizaje", "En Ruta"]);
+                    }else if(situacion === "Objeto en pista / FOD"){
+                        state.step = 60;
+                        botTalk("Tipo de objeto:", 
+                        ["Herramienta", "Parte metálica", "Plástico", "Otro"]);
+                    }else if(situacion === "Fauna terrestre"){
+                        state.step = 63;
+                        botTalk("Tipo de fauna:", 
+                        ["Ave grande", "Mamífero pequeño", "Mamífero grande", "No identificado"]);
+                    }else if(situacion === "Tráfico aéreo / separación"){
+                        state.step = 65;
+                        botTalk("Situación:", 
+                        ["Separación reducida", "Autorización confusa", "Tráfico no esperado", "Otro"]);
+                    }else if(situacion === "Condiciones meteorológicas"){
+                        state.step = 67;
+                        botTalk("Condición predominante:", 
+                        ["Viento", "Cizalladura", "Precipitación", "Visibilidad", "Hielo"]);
+                    }
+                    break;
+
+                //riesgo aviario
+                case 57:
+                    state.step = 58;
+                    botTalk("Cantidad aproximada:", 
+                    ["Una", "Varias (2-10)", "Bandada (> 10)", "No seguro"]);
+                    break;
+
+                case 58:
+                    state.step = 59;
+                    botTalk("Proximidad al impacto:", 
+                    ["Muy cercana", "Cercana", "Con margen"]);
+                    break;
+
+                case 59:
+                    state.step = 110;
+                    botTalk("Control del riesgo aviario en el lugar:", 
+                    ["Adecuado", "Parcial", "Deficiente", "No lo sé"]);
+                    break;
+
+                //fod objeto en pista
+                case 60:
+                    state.step = 61;
+                    botTalk("Lugar:", 
+                    ["Pista", "Calle de rodaje", "Plataforma", "Área mantenimiento"]);
+                    break;
+
+                case 61:
+                    state.step = 62;
+                    botTalk("Cómo se detectó:", 
+                    ["Visual", "ATC", "Inspección", "Casualidad"]);
+                    break;
+
+                case 62:
+                    state.step = 110;
+                    botTalk("Repetición en el lugar:", 
+                    ["Frecuente", "Ha ocurrido", "Primera vez", "No lo sé"]);
+                    break;
+
+                //fauna terrestre
+                case 63:
+                    state.step = 64;
+                    botTalk("Ubicación:", 
+                    ["Pista", "Calle de rodaje", "Perímetro", "Plataforma"]);
+                    break;
+
+                case 64:
+                    state.step = 110;
+                    botTalk("Control existente:", 
+                    ["Adecuado", "Parcial", "Deficiente", "No lo sé"]);
+                    break;
+
+                //trafico aereo/separacion
+                case 65:
+                    state.step = 66;
+                    botTalk("Fase:", 
+                    ["Rodaje", "Despegue", "Aproximación", "En ruta"]);
+                    break;
+
+                case 66:
+                    state.step = 110;
+                    botTalk("Carga operacional:", 
+                    ["Baja", "Media", "Alta"]);
+                    break;
+
+                //condiciones metereologicas
+                case 67:
+                    state.step = 68;
+                    botTalk("Impacto percibido:", 
+                    ["Bajo", "Medio", "Alto"]);
+                    break;
+
+                case 68:
+                    state.step = 110;
+                    botTalk("Información disponible:", 
+                    ["Suficiente", "Parcial", "Insuficiente"]);
+                    break;
+
+                //continuacion NEAR MISS
+                case 110:
+                    state.step = 111;
+                    botTalk("¿Qué evitó que el accidente ocurriera?", 
+                    ["Atención / criterio", "Procedimiento / checklist", "Sistema técnico / alerta", "Comunicación", "Condiciones externas", "Casualidad"]);
+                    break;
+
+                case 111:
+                    state.step = 112;
+                    botTalk("Fragilidad de la barrera:", 
+                    ["Fuerte y confiable", "Funcionó con dificultad", "Funcionó por poco", "Fue solo suerte"]);
+                    break;
+
+                case 112:
+                    state.step = 113;
+                    botTalk("Condiciones presentes (selección múltiple):", //EDITAR****
+                    ["Presión de tiempo", "Alta carga", "Fatiga", "Falta de personal", "Distracciones", "Meteo adversa", "Ninguna"]);
+                    break;
+
+                case 113:
+                    state.step = 114;
+                    botTalk("¿Falló alguna barrera previa?", 
+                    ["Si", "No", "No estoy seguro"]);
+                    break;
+
+                case 114:
+                    let falloBarrera = state.data['Paso_114'];
+                    if(falloBarrera == "Si"){
+                        state.step = 115;
+                        botTalk("Indique cuál fue el fallo:", 
+                        ["Procedimiento", "Comunicación", "Supervisión", "Sistema técnico"]);
+                        break;
+                    }else{
+                        state.step = 116;
+                        botTalk("Proximidad al accidente:", 
+                        ["Segundos", "Minutos", "Con margen"]);
+                        break;
+                    }
+
+                //continuacion
+                case 115:
+                    state.step = 116;
+                    botTalk("Proximidad al accidente:", 
+                    ["Segundos", "Minutos", "Con margen"]);
+                    break;
+
+                case 116:
+                    state.step = 117;
+                    botTalk("¿Ha ocurrido antes?", 
+                    ["Frecuente", "Ha ocurrido", "Primera vez", "No lo sé"]);
+                    break;
+
+                case 117:
+                    state.step = 118;
+                    botTalk("¿Podría repetirse?", 
+                    ["Fácilmente", "En condiciones similares", "Difícil", "No debería"]);
+                    break;
+
+                case 118:
+                    state.step = 119;
+                    botTalk("Severidad potencial:", 
+                    ["Menor", "Mayor", "Difícil", "Grave / catastrófico"]);
+                    break;
+
+                case 119:
+                    state.step = 120;
+                    botTalk("Control actual del riesgo:", 
+                    ["Controlado", "Parcial", "No controlado"]);
+                    break;
+
+                case 120:
+                    state.step = 121;
+                    botTalk("¿Qué debería cambiar para evitar la repetición?");
+                    break;
+
+                case 121:
+                    state.step = 122;
+                    botTalk("¿Informado a jefatura/supervisión?:", 
+                    ["Sí", "No"]);
+                    break;
+
+                case 122:
+                    console.log("Datos:", state.data);
+                    botTalk("Gracias por tu reporte. <br>Los Near Miss permiten identificar debilidades del sistema <b>antes</b> de que se transformen en accidentes.");
                     break;
             }
         }
